@@ -1,4 +1,5 @@
 export const SAMPLE_RATE = 48000;
+export const FM_OVER_144 = 7670454 / 144; // Japan Mega Drive
 
 function addBuffers(dest, ...sources) {
 	for (let i = 0; i < dest.length; i++) {
@@ -11,15 +12,20 @@ function addBuffers(dest, ...sources) {
 
 // 3 channels
 class ChannelSet {
-	constructor(ym2612, memory, channelOffset) {
-		this.ym2612 = ym2612;
+	constructor(memory, channelOffset) {
 		this.memoryMap = memory;
 		this.channelOffset = channelOffset;
 		this.channels = [new Channel(this), new Channel(this), new Channel(this)];
 	}
 
 	channelFrequency(channel) {
-		return (this.memoryMap[0xa4 + channel] & 7) << 8 | this.memoryMap[0xa0 + channel];
+		const offsetInOctave = (this.memoryMap[0xa4 + channel] & 7) << 8 | this.memoryMap[0xa0 + channel];
+		const octave = this.memoryMap[0xa4 + channel] >>> 3 & 7;
+		// On the YM3438, the formula is given as
+		// F-number(note) = (144 * Fnote * 2^20 / Fm) / 2^(B-1)
+		// (With Fnote=frequency in Hz e.g. 440 Hz for A4, Fm=oscillator (8 MHz), B=octave)
+		// => Inversely, Fnote = F-number * (Fm / 144) * 2^(B-21)
+		return offsetInOctave * FM_OVER_144 * Math.pow(2, octave - 21);
 	}
 
 	channelStr(channel) {
@@ -108,7 +114,7 @@ class Operator {
 export class YM2612 {
 	constructor() {
 		this.memoryMap = new Uint8Array(512);
-		this.channelSets = [new ChannelSet(this, this.memoryMap.subarray(0, 256), 0), new ChannelSet(this, this.memoryMap.subarray(256, 512), 3)];
+		this.channelSets = [new ChannelSet(this.memoryMap.subarray(0, 256), 0), new ChannelSet(this.memoryMap.subarray(256, 512), 3)];
 	}
 
 	channel(no) {

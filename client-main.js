@@ -13,7 +13,7 @@ async function run() {
   if (!res.ok) throw Error('Unable to fetch gym file');
 
 	const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	const audioBuffer = audioCtx.createBuffer(1, 5 * SAMPLE_RATE, SAMPLE_RATE);
+	const audioBuffer = audioCtx.createBuffer(1, 10 * SAMPLE_RATE, SAMPLE_RATE);
 	const samples = audioBuffer.getChannelData(0);
 	const samplesPerFrame = SAMPLE_RATE / 60;
 	let processedSamples = 0;
