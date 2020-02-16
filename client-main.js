@@ -23,7 +23,7 @@ async function run() {
   let buffer = new Uint8Array(await res.arrayBuffer());
   buffer = buffer.subarray(428);
 
-  while (buffer.length > 0) {
+  while (buffer.length > 0 && processedSamples < samples.length) {
     switch (buffer[0]) {
     case 0:
     	ym.processFrame();
