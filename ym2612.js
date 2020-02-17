@@ -22,7 +22,7 @@ class Operator {
 	processSamples(samples) {
 		if (this.frequency === 0) return;
 		for (let i = 0; i < samples.length; i++) {
-			const sample = Math.sin(this.angle) * this.volume / 24;
+			const sample = (Math.sin(this.angle) > 0 ? 1 : -1) * this.volume / 24;
 			if (this.keyOn) {
 				this.angle += this.frequency * 2 * Math.PI / SAMPLE_RATE;
 			}
@@ -205,9 +205,5 @@ export class YM2612 {
 			this.channels[4].processSamples(outputSamples.slice()),
 			this.channels[5].processSamples(outputSamples.slice()),
 		);
-
-		//for (let i = 0; i < samples.length; i++) {
-		//	samples[i] = Math.sin(i * 0.05)
-		//}
 	}
 }
