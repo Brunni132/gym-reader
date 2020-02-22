@@ -1,4 +1,6 @@
-import {SAMPLE_RATE, YM2612} from "./ym2612";
+import {SAMPLE_RATE, YM2612} from "./ym2612/ym2612";
+
+export let DEBUG_frameNo = 0;
 
 Number.prototype.toHex = function(positions = 2) {
 	return this.toString(16).padStart(positions, '0');
@@ -13,7 +15,7 @@ async function run() {
 	if (!res.ok) throw Error('Unable to fetch gym file');
 
 	const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	const audioBuffer = audioCtx.createBuffer(1, 30 * SAMPLE_RATE, SAMPLE_RATE);
+	const audioBuffer = audioCtx.createBuffer(1, 1 * SAMPLE_RATE, SAMPLE_RATE);
 	const samples = audioBuffer.getChannelData(0);
 	const samplesPerFrame = SAMPLE_RATE / 60;
 	let processedSamples = 0;
@@ -47,6 +49,7 @@ async function run() {
 			default:
 				throw new Error(`Unknown command ${buffer[0]}`);
 		}
+    DEBUG_frameNo++;
 	}
 
 	const source = audioCtx.createBufferSource();
