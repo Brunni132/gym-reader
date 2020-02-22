@@ -2,7 +2,7 @@ import {ChannelSet} from "./channelSet";
 import {print} from "../client-main";
 
 export const SAMPLE_RATE = 48000;
-export const GLOBAL_ATTENUATION = 2;
+export const GLOBAL_ATTENUATION = 6;
 export const DEBUG_LOG_UNKNOWN_WRITES = false;
 export const FM_OVER_144 = 7670454 / 144; // Japan Mega Drive
 
@@ -83,11 +83,11 @@ export class YM2612 {
 
 		addBuffers(outputSamples,
 				this.channels[0].processSamples(outputSamples.slice()),
-				//this.channels[1].processSamples(outputSamples.slice()),
-				//this.channels[2].processSamples(outputSamples.slice()),
-				//this.channels[3].processSamples(outputSamples.slice()),
-				//this.channels[4].processSamples(outputSamples.slice()),
-				//this.channels[5].processSamples(outputSamples.slice()),
+				this.channels[1].processSamples(outputSamples.slice()),
+				this.channels[2].processSamples(outputSamples.slice()),
+				this.channels[3].processSamples(outputSamples.slice()),
+				this.channels[4].processSamples(outputSamples.slice()),
+				this.channels[5].processSamples(outputSamples.slice()),
 		);
 	}
 }

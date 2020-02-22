@@ -33,14 +33,15 @@ export class Operator {
     this.sampleNumber = 0;
     this.envelope = {
       counter: 0,
+      totalAttenuation: 0, // Total level
       phase: PHASE_RELEASE,
       get currentPhaseParams() { return this.phaseParams[this.phase]; },
       // for each phase, slope and final point
       phaseParams: [
-        {rate: 0, level: 0x3ff}, // PHASE_ATTACK
-        {rate: 0, level: 0x3ff}, // PHASE_DECAY
-        {rate: 0, level: 0x3ff}, // PHASE_SUSTAIN
-        {rate: 0, level: 0x3ff}, // PHASE_RELEASE
+        {rate: 0, endAttenuation: 0x000}, // PHASE_ATTACK
+        {rate: 0, endAttenuation: 0x3ff}, // PHASE_DECAY
+        {rate: 0, endAttenuation: 0x3ff}, // PHASE_SUSTAIN
+        {rate: 0, endAttenuation: 0x3ff}, // PHASE_RELEASE
       ],
       attenuation: 0x3ff,
     };
@@ -65,19 +66,18 @@ export class Operator {
       if (this.envelope.phase === PHASE_ATTACK) {
         // Simulation discrète d'exponentielle
         this.envelope.attenuation += (~this.envelope.attenuation * attenuationIncrement) >> 4;
+        print(this, `atn[ATK]=${this.envelope.attenuation} to ${this.envelope.currentPhaseParams.endAttenuation}`);
 
-        if (this.envelope.attenuation <= this.envelope.currentPhaseParams.level) {
-          this.envelope.attenuation = this.envelope.currentPhaseParams.level;
+        if (this.envelope.attenuation <= this.envelope.currentPhaseParams.endAttenuation) {
+          this.envelope.attenuation = this.envelope.currentPhaseParams.endAttenuation;
           this.envelope.phase++;
-          print(this, `next from attack`);
         }
       } else {
         this.envelope.attenuation += attenuationIncrement;
-        if (this.envelope.phase !== PHASE_RELEASE)
-          print(this, `next from ${this.envelope.phase}`, this.envelope.attenuation, this.envelope.currentPhaseParams.level);
+        print(this, `atn[${this.envelope.phase}]=${this.envelope.attenuation} to ${this.envelope.currentPhaseParams.endAttenuation}`);
 
-        if (this.envelope.attenuation >= this.envelope.currentPhaseParams.level) {
-          this.envelope.attenuation = this.envelope.currentPhaseParams.level;
+        if (this.envelope.attenuation >= this.envelope.currentPhaseParams.endAttenuation) {
+          this.envelope.attenuation = this.envelope.currentPhaseParams.endAttenuation;
           if (this.envelope.phase === PHASE_DECAY) {
             this.envelope.phase++;
             print(this, `next from decay`);
@@ -91,49 +91,47 @@ export class Operator {
     this.envelope.phase = on ? PHASE_ATTACK : PHASE_RELEASE;
   }
 
-  processTotalLevelWrite(data) {
+  process40Write(data) {
     print(this, `total_level=${data}`);
-    this.envelope.phaseParams[PHASE_ATTACK].level = data;
+    this.envelope.totalAttenuation = data;
   }
 
-  processRSARWrite(rateScaling, attackRate) {
+  process50Write(rateScaling, attackRate) {
     print(this, `rate_scaling=${rateScaling}, attack_rate=${attackRate}`);
     // TODO Florian -- Rate scaling
     this.envelope.phaseParams[PHASE_ATTACK].rate = attackRate;
   }
 
-  processAMDRWrite(amplitudeModulation, decayRate) {
+  process60Write(amplitudeModulation, decayRate) {
     print(this, `amplitude_mod=${amplitudeModulation}, decay_rate=${decayRate}`);
     // TODO Florian -- Amplitude modulation
     this.envelope.phaseParams[PHASE_DECAY].rate = decayRate;
   }
 
-  processSustainRateWrite(sustainRate) {
+  process70Write(sustainRate) {
     print(this, `sustain_rate=${sustainRate}`);
     this.envelope.phaseParams[PHASE_SUSTAIN].rate = sustainRate;
   }
 
-  processSLRRWrite(sustainLevel, releaseRate) {
-    print(this, `sustain_level=${sustainLevel}, release_rate=${releaseRate * 2 + 1}`);
-    this.envelope.phaseParams[PHASE_DECAY].level = sustainLevel;
-    this.envelope.phaseParams[PHASE_RELEASE].rate = releaseRate * 2 + 1;
+  process80Write(decayLevel, releaseRate) {
+    print(this, `decay_level=${decayLevel}, release_rate=${releaseRate}`);
+    this.envelope.phaseParams[PHASE_DECAY].endAttenuation = decayLevel;
+    this.envelope.phaseParams[PHASE_RELEASE].rate = releaseRate;
   }
 
   processSamples(samples) {
     if (this.frequency === 0) return;
-    // * 20 because in decibels (all computations are made in logarithmic scale)
-    let volume = Math.pow(10, -this.envelope.attenuation * 48 / (127 * 20));
-
-    print(this, `state`, this.envelope.phaseParams);
 
     for (let i = 0; i < samples.length; i++) {
+      const atnDb = (this.envelope.attenuation * 48 / 1023) + (this.envelope.totalAttenuation * 96 / 127);
+      const volume = Math.pow(10, -atnDb / 20);
+
       if (++this.sampleNumber === 3) {
         this.sampleNumber = 0;
         this.calcEnvelope();
-        volume = Math.pow(10, -this.envelope.attenuation * 48 / (127 * 20));
       }
 
-      const sample = Math.sin(this.angle) * volume / GLOBAL_ATTENUATION;
+      const sample = (Math.sin(this.angle) > 0 ? 1 : -1) * volume / GLOBAL_ATTENUATION;
      	this.angle += this.frequency * 2 * Math.PI / SAMPLE_RATE;
       samples[i] += sample;
     }

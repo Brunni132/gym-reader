@@ -51,27 +51,29 @@ export class ChannelSet {
     switch (reg & 0xf0) {
     case 0x40: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.processTotalLevelWrite(data & 0x7f);
+      print(operator, `writing ${reg.toHex()} data=${data.toHex()}`);
+      if (operator) return operator.process40Write(data & 0x7f);
       break;
     }
     case 0x50: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.processRSARWrite(data >>> 6, data & 0x1f);
+      if (operator) return operator.process50Write(data >>> 6, data & 0x1f);
       break;
     }
     case 0x60: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.processAMDRWrite(data >>> 7, data & 0x1f);
+      if (operator) return operator.process60Write(data >>> 7, data & 0x1f);
       break;
     }
     case 0x70: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.processSustainRateWrite(data & 0x1f);
+      if (operator) return operator.process70Write(data & 0x1f);
       break;
     }
     case 0x80: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.processSLRRWrite(data >>> 4, data & 0xf);
+      print(operator, `writing ${reg.toHex()} data=${data.toHex()}`);
+      if (operator) return operator.process80Write((data >>> 4) * 8, (data & 0xf) * 2 + 1);
       break;
     }
 
