@@ -25,7 +25,7 @@ export class Channel {
     ];
 
     for (let i = 0; i < 4; i++) {
-      if (slotPerAlgo[this.algorithm] & 1 << i) {
+      if ((slotPerAlgo[this.algorithm] & (1 << i))) {
         this.operators[i].processSamples(outputSamples);
       }
     }

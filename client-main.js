@@ -1,6 +1,39 @@
-import {SAMPLE_RATE, YM2612} from "./ym2612/ym2612";
+import {DEBUG_LOG_UNKNOWN_WRITES, SAMPLE_RATE, YM2612} from "./ym2612/ym2612";
+import {WaveFile} from "wavefile";
 
 export let DEBUG_frameNo = 0;
+
+export function print(object, ...text) {
+  //if (object instanceof Operator && object.name !== '[CH3 OP4]') return;
+  //if (DEBUG_frameNo === 194)
+  //if (text[0].startsWith(`next`))
+  if (object.name === '[CH1 OP4]' && !text[0].startsWith('next'))
+    console.log(`${object.name} frame=${DEBUG_frameNo}`, ...text);
+}
+
+function playSound(audioCtx, audioBuffer) {
+  const source = audioCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(audioCtx.destination);
+  source.start();
+}
+
+function saveSound(samples) {
+  const buffer16 = new Array(samples.length);
+  for (let i = 0; i < samples.length; i++)
+    buffer16[i] = Math.round(samples[i] * 32767);
+
+  const wav = new WaveFile();
+  wav.fromScratch(1, SAMPLE_RATE, '16', buffer16);
+  window.fetch('http://localhost:3001/sound.wav', {
+    method: 'POST',
+    mode: 'cors',
+    cache: 'no-cache',
+    credentials: 'same-origin',
+    contentType: 'application/binary',
+    body: new Blob([wav.toBuffer()], {type : 'application/binary'})
+  });
+}
 
 Number.prototype.toHex = function(positions = 2) {
 	return this.toString(16).padStart(positions, '0');
@@ -11,11 +44,11 @@ Number.prototype.toBin = function(positions = 8) {
 };
 
 async function run() {
-	const res = await window.fetch('file.gym');
+	const res = await window.fetch('http://localhost:3001/file.gym');
 	if (!res.ok) throw Error('Unable to fetch gym file');
 
 	const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	const audioBuffer = audioCtx.createBuffer(1, 1 * SAMPLE_RATE, SAMPLE_RATE);
+	const audioBuffer = audioCtx.createBuffer(1, 5 * SAMPLE_RATE, SAMPLE_RATE);
 	const samples = audioBuffer.getChannelData(0);
 	const samplesPerFrame = SAMPLE_RATE / 60;
 	let processedSamples = 0;
@@ -43,7 +76,9 @@ async function run() {
 				buffer = buffer.subarray(3);
 				break;
 			case 3:
-				console.warn(`PSG data=${buffer[1].toHex()}`);
+			  if (DEBUG_LOG_UNKNOWN_WRITES) {
+          console.warn(`PSG data=${buffer[1].toHex()}`);
+        }
 				buffer = buffer.subarray(2);
 				break;
 			default:
@@ -52,10 +87,8 @@ async function run() {
     DEBUG_frameNo++;
 	}
 
-	const source = audioCtx.createBufferSource();
-	source.buffer = audioBuffer;
-	source.connect(audioCtx.destination);
-	source.start();
+	playSound(audioCtx, audioBuffer);
+	saveSound(samples);
 }
 
 //function test() {

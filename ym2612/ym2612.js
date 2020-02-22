@@ -1,7 +1,9 @@
 import {ChannelSet} from "./channelSet";
-import {DEBUG_frameNo} from "../client-main";
+import {print} from "../client-main";
 
 export const SAMPLE_RATE = 48000;
+export const GLOBAL_ATTENUATION = 2;
+export const DEBUG_LOG_UNKNOWN_WRITES = false;
 export const FM_OVER_144 = 7670454 / 144; // Japan Mega Drive
 
 function addBuffers(dest, ...sources) {
@@ -15,6 +17,7 @@ function addBuffers(dest, ...sources) {
 
 export class YM2612 {
 	constructor() {
+	  this.name = 'YM2612';
 		this.memoryMap = new Uint8Array(512);
 		this.channelSets = [new ChannelSet(this.memoryMap.subarray(0, 256), 0), new ChannelSet(this.memoryMap.subarray(256, 512), 3)];
 	}
@@ -29,7 +32,7 @@ export class YM2612 {
 	}
 
 	processKeyOn(data) {
-		console.log(`Key ${(data & 0x10) ? 'on' : 'off'} channel=${this.channelId(data & 7).name}`);
+		print(this, `Key ${(data & 0x10) ? 'on' : 'off'} channel=${this.channelId(data & 7).name}`);
 		// Bits 4-7 => operators 0-3
 		this.channelId(data & 7).operators.forEach((o, i) => o.processKeyOn((data >>> (4 + i)) & 1));
 	}
@@ -51,7 +54,9 @@ export class YM2612 {
 					return;
 
 				default:
-					console.warn(`YM reg=${part}${reg.toHex()} data=${data.toHex()}`);
+				  if (DEBUG_LOG_UNKNOWN_WRITES) {
+            console.warn(`YM reg=${part}${reg.toHex()} data=${data.toHex()}`);
+          }
 					return;
 			}
 		}
@@ -60,7 +65,7 @@ export class YM2612 {
 	}
 
 	processFrame() {
-		//console.log(`Skipping frame`);
+		//print(this, `Skipping frame`);
 	}
 
 	processSamples(outputSamples) {
@@ -74,15 +79,15 @@ export class YM2612 {
 				}
 			});
 		});
-		console.log(`Processing frame ${DEBUG_frameNo}, active = ${runningOps.join(', ')}`);
+		print(this, `Processing frame active = ${runningOps.join(', ')}`);
 
 		addBuffers(outputSamples,
 				this.channels[0].processSamples(outputSamples.slice()),
-				this.channels[1].processSamples(outputSamples.slice()),
-				this.channels[2].processSamples(outputSamples.slice()),
-				this.channels[3].processSamples(outputSamples.slice()),
-				this.channels[4].processSamples(outputSamples.slice()),
-				this.channels[5].processSamples(outputSamples.slice()),
+				//this.channels[1].processSamples(outputSamples.slice()),
+				//this.channels[2].processSamples(outputSamples.slice()),
+				//this.channels[3].processSamples(outputSamples.slice()),
+				//this.channels[4].processSamples(outputSamples.slice()),
+				//this.channels[5].processSamples(outputSamples.slice()),
 		);
 	}
 }

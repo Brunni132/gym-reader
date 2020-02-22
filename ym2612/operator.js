@@ -1,5 +1,5 @@
-import {SAMPLE_RATE} from "./ym2612";
-import {DEBUG_frameNo} from "../client-main";
+import {GLOBAL_ATTENUATION, SAMPLE_RATE} from "./ym2612";
+import {DEBUG_frameNo, print} from "../client-main";
 
 const PHASE_ATTACK = 0, PHASE_DECAY = 1, PHASE_SUSTAIN = 2, PHASE_RELEASE = 3;
 // From the 10-bit attenuation value over time (averaged and multiplied by 8)
@@ -56,13 +56,12 @@ export class Operator {
     }
 
     // Determines every how many iterations we get the attenuation-increment-value in the table
-    let counterShiftValue = 11 - rate >>> 2;
+    let counterShiftValue = 11 - (rate >>> 2);
     if (counterShiftValue < 0) counterShiftValue = 0;
 
-    if (DEBUG_frameNo === 194) console.log(`TEMP ${this.name} rate`, this.envelope, rate);
     if (++this.envelope.counter % (1 << counterShiftValue) === 0) {
       const attenuationIncrement = ATTENUATION_INCREMENT_TABLE[rate] / 8;
-      this.envelope.counter = 0;
+      //this.envelope.counter = 0;
       if (this.envelope.phase === PHASE_ATTACK) {
         // Simulation discrète d'exponentielle
         this.envelope.attenuation += (~this.envelope.attenuation * attenuationIncrement) >> 4;
@@ -70,14 +69,18 @@ export class Operator {
         if (this.envelope.attenuation <= this.envelope.currentPhaseParams.level) {
           this.envelope.attenuation = this.envelope.currentPhaseParams.level;
           this.envelope.phase++;
+          print(this, `next from attack`);
         }
       } else {
         this.envelope.attenuation += attenuationIncrement;
+        if (this.envelope.phase !== PHASE_RELEASE)
+          print(this, `next from ${this.envelope.phase}`, this.envelope.attenuation, this.envelope.currentPhaseParams.level);
 
         if (this.envelope.attenuation >= this.envelope.currentPhaseParams.level) {
           this.envelope.attenuation = this.envelope.currentPhaseParams.level;
           if (this.envelope.phase === PHASE_DECAY) {
             this.envelope.phase++;
+            print(this, `next from decay`);
           }
         }
       }
@@ -89,48 +92,48 @@ export class Operator {
   }
 
   processTotalLevelWrite(data) {
-    console.log(`${this.name} total_level=${data}`);
+    print(this, `total_level=${data}`);
     this.envelope.phaseParams[PHASE_ATTACK].level = data;
-    //this.volume = Math.pow(10, -data * 96 / (127 * 20));
   }
 
   processRSARWrite(rateScaling, attackRate) {
-    console.log(`${this.name} rate_scaling=${rateScaling}, attack_rate=${attackRate}`);
+    print(this, `rate_scaling=${rateScaling}, attack_rate=${attackRate}`);
     // TODO Florian -- Rate scaling
     this.envelope.phaseParams[PHASE_ATTACK].rate = attackRate;
   }
 
   processAMDRWrite(amplitudeModulation, decayRate) {
-    console.log(`${this.name} amplitude_mod=${amplitudeModulation}, decay_rate=${decayRate}`);
+    print(this, `amplitude_mod=${amplitudeModulation}, decay_rate=${decayRate}`);
     // TODO Florian -- Amplitude modulation
     this.envelope.phaseParams[PHASE_DECAY].rate = decayRate;
   }
 
   processSustainRateWrite(sustainRate) {
-    console.log(`${this.name} sustain_rate=${sustainRate}`);
+    print(this, `sustain_rate=${sustainRate}`);
     this.envelope.phaseParams[PHASE_SUSTAIN].rate = sustainRate;
   }
 
   processSLRRWrite(sustainLevel, releaseRate) {
-    console.log(`${this.name} sustain_level=${sustainLevel}, release_rate=${releaseRate * 2 + 1}`);
-    this.envelope.phaseParams[PHASE_SUSTAIN].level = sustainLevel;
+    print(this, `sustain_level=${sustainLevel}, release_rate=${releaseRate * 2 + 1}`);
+    this.envelope.phaseParams[PHASE_DECAY].level = sustainLevel;
     this.envelope.phaseParams[PHASE_RELEASE].rate = releaseRate * 2 + 1;
   }
 
   processSamples(samples) {
     if (this.frequency === 0) return;
     // * 20 because in decibels (all computations are made in logarithmic scale)
-    const volume = Math.pow(10, -this.envelope.attenuation * 48 / (127 * 20));
+    let volume = Math.pow(10, -this.envelope.attenuation * 48 / (127 * 20));
 
-    console.log(`TEMP processing ${this.name}: ${volume}`, this.envelope);
+    print(this, `state`, this.envelope.phaseParams);
 
     for (let i = 0; i < samples.length; i++) {
       if (++this.sampleNumber === 3) {
         this.sampleNumber = 0;
         this.calcEnvelope();
+        volume = Math.pow(10, -this.envelope.attenuation * 48 / (127 * 20));
       }
 
-      const sample = (Math.sin(this.angle) > 0 ? 1 : -1) * volume / 24;
+      const sample = Math.sin(this.angle) * volume / GLOBAL_ATTENUATION;
      	this.angle += this.frequency * 2 * Math.PI / SAMPLE_RATE;
       samples[i] += sample;
     }

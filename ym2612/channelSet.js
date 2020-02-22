@@ -1,10 +1,12 @@
 import {Channel} from "./channel";
-import {FM_OVER_144} from "./ym2612";
+import {DEBUG_LOG_UNKNOWN_WRITES, FM_OVER_144} from "./ym2612";
+import {print} from "../client-main";
 
 // 3 channels (they have symmetrical configuration)
 export class ChannelSet {
   constructor(memory, channelOffset) {
     this.memoryMap = memory;
+    this.name = `ChannelSet[${channelOffset+1}-${channelOffset+3}]`;
     this.channels = [
       new Channel(`CH${channelOffset + 1}`),
       new Channel(`CH${channelOffset + 2}`),
@@ -24,17 +26,17 @@ export class ChannelSet {
 
   // For 30-8F gives the operator/channel combination
   channelOperator(reg) {
-    if (reg & 3 === 3) return null;
+    if ((reg & 3) === 3) return null;
     return this.channels[reg & 3].operators[reg >>> 2 & 3];
   }
 
   processFrequencyWrite(channel) {
-    console.log(`${this.channels[channel].name} frequency=${this.channelFrequency(channel)}`);
+    print(this.channels[channel], `frequency=${this.channelFrequency(channel)}`);
     this.channels[channel].operators.forEach(op => op.frequency = this.channelFrequency(channel));
   }
 
   processFeedbackAlgorithm(channel, data) {
-    console.log(`${this.channels[channel].name} algo=${data & 7} feedback=${data >>> 3 & 7}`);
+    print(this.channels[channel], `algo=${data & 7} feedback=${data >>> 3 & 7}`);
     this.channels[channel].algorithm = data & 7;
   }
 
@@ -42,7 +44,7 @@ export class ChannelSet {
     const fms_table = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
     const ams_table = [0, 1.4, 5.9, 11.8];
     const output = ['disabled', 'right', 'left', 'center'];
-    console.log(`${this.channels[channel].name} FMS=+/-${fms_table[data & 3]}% of halftone, AMS=${ams_table[data >>> 3 & 7]}dB, pan=${output[data >>> 6]}`);
+    print(this.channels[channel], `FMS=+/-${fms_table[data & 3]}% of halftone, AMS=${ams_table[data >>> 3 & 7]}dB, pan=${output[data >>> 6]}`);
   }
 
   processWrite(part, reg, data) {
@@ -83,6 +85,8 @@ export class ChannelSet {
       if (reg >= 0xb4 && reg < 0xb7) return this.processStereoLfoSensitivity(reg & 3, data);
       break;
     }
-    console.warn(`YM reg=${part}${reg.toHex()} data=${data.toHex()}`);
+    if (DEBUG_LOG_UNKNOWN_WRITES) {
+      console.warn(`YM-${part} reg=${reg.toHex()} data=${data.toHex()}`);
+    }
   }
 }
