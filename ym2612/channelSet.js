@@ -8,20 +8,10 @@ export class ChannelSet {
     this.memoryMap = memory;
     this.name = `ChannelSet[${channelOffset+1}-${channelOffset+3}]`;
     this.channels = [
-      new Channel(`CH${channelOffset + 1}`),
-      new Channel(`CH${channelOffset + 2}`),
-      new Channel(`CH${channelOffset + 3}`)
+      new Channel(`CH${channelOffset + 1}`, this, 0),
+      new Channel(`CH${channelOffset + 2}`, this, 1),
+      new Channel(`CH${channelOffset + 3}`, this, 2)
     ];
-  }
-
-  channelFrequency(channel) {
-    const offsetInOctave = (this.memoryMap[0xa4 + channel] & 7) << 8 | this.memoryMap[0xa0 + channel];
-    const octave = this.memoryMap[0xa4 + channel] >>> 3 & 7;
-    // On the YM3438, the formula is given as
-    // F-number(note) = (144 * Fnote * 2^20 / Fm) / 2^(B-1)
-    // (With Fnote=frequency in Hz e.g. 440 Hz for A4, Fm=oscillator (8 MHz), B=octave)
-    // => Inversely, Fnote = F-number * (Fm / 144) * 2^(B-21)
-    return offsetInOctave * FM_OVER_144 * Math.pow(2, octave - 21);
   }
 
   // For 30-8F gives the operator/channel combination
@@ -30,9 +20,10 @@ export class ChannelSet {
     return this.channels[reg & 3].operators[reg >>> 2 & 3];
   }
 
+  // Called when any register having an effect with the frequency changes
   processFrequencyWrite(channel) {
-    print(this.channels[channel], `frequency=${this.channelFrequency(channel)}`);
-    this.channels[channel].operators.forEach(op => op.frequency = this.channelFrequency(channel));
+    print(this.channels[channel], `frequency=${this.channels[channel].frequencyHz}`);
+    this.channels[channel].operators.forEach(op => op.updateFrequency());
   }
 
   processFeedbackAlgorithm(channel, data) {
@@ -49,31 +40,37 @@ export class ChannelSet {
 
   processWrite(part, reg, data) {
     switch (reg & 0xf0) {
+    case 0x30: {
+      const operator = this.channelOperator(reg);
+      if (operator) {
+        operator.process30Write(data);
+        return this.processFrequencyWrite(reg & 3);
+      }
+      break;
+    }
     case 0x40: {
       const operator = this.channelOperator(reg);
-      print(operator, `writing ${reg.toHex()} data=${data.toHex()}`);
-      if (operator) return operator.process40Write(data & 0x7f);
+      if (operator) return operator.process40Write(data);
       break;
     }
     case 0x50: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.process50Write(data >>> 6, data & 0x1f);
+      if (operator) return operator.process50Write(data);
       break;
     }
     case 0x60: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.process60Write(data >>> 7, data & 0x1f);
+      if (operator) return operator.process60Write(data);
       break;
     }
     case 0x70: {
       const operator = this.channelOperator(reg);
-      if (operator) return operator.process70Write(data & 0x1f);
+      if (operator) return operator.process70Write(data);
       break;
     }
     case 0x80: {
       const operator = this.channelOperator(reg);
-      print(operator, `writing ${reg.toHex()} data=${data.toHex()}`);
-      if (operator) return operator.process80Write((data >>> 4) * 8, (data & 0xf) * 2 + 1);
+      if (operator) return operator.process80Write(data);
       break;
     }
 

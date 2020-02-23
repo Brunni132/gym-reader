@@ -7,8 +7,8 @@ export function print(object, ...text) {
   //if (object instanceof Operator && object.name !== '[CH3 OP4]') return;
   //if (DEBUG_frameNo === 194)
   //if (text[0].startsWith(`next`))
-  if (object.name === '[CH1 OP4]' && !text[0].startsWith('next'))
-    console.log(`${object.name} frame=${DEBUG_frameNo}`, ...text);
+  //if (object.name === '[CH1 OP4]' && !text[0].startsWith('next'))
+  //  console.log(`${object.name} frame=${DEBUG_frameNo}`, ...text);
 }
 
 function playSound(audioCtx, audioBuffer) {
@@ -43,12 +43,16 @@ Number.prototype.toBin = function(positions = 8) {
 	return this.toString(2).padStart(positions, '0');
 };
 
+Number.prototype.bit = function(bitNo) {
+  return (this >>> bitNo) & 1;
+};
+
 async function run() {
 	const res = await window.fetch('http://localhost:3001/file.gym');
 	if (!res.ok) throw Error('Unable to fetch gym file');
 
 	const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	const audioBuffer = audioCtx.createBuffer(1, 30 * SAMPLE_RATE, SAMPLE_RATE);
+	const audioBuffer = audioCtx.createBuffer(1, 90 * SAMPLE_RATE, SAMPLE_RATE);
 	const samples = audioBuffer.getChannelData(0);
 	const samplesPerFrame = SAMPLE_RATE / 60;
 	let processedSamples = 0;

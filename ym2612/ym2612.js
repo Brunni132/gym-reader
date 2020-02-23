@@ -1,9 +1,12 @@
 import {ChannelSet} from "./channelSet";
 import {print} from "../client-main";
+import * as SourceFunctions from "./sourceFunctions";
 
-export const SAMPLE_RATE = 48000;
 export const GLOBAL_ATTENUATION = 6;
 export const DEBUG_LOG_UNKNOWN_WRITES = false;
+export const SOURCE_FUNCTION = SourceFunctions.triangle;
+
+export const SAMPLE_RATE = 48000;
 export const FM_OVER_144 = 7670454 / 144; // Japan Mega Drive
 
 function addBuffers(dest, ...sources) {

@@ -12,7 +12,7 @@ app.use(bodyParser.raw({ verify: (req, res, buf, encoding) => {
       if (!req.rawBody) req.rawBody = buf;
       else req.rawBody = Buffer.concat(req.rawBody, buf);
     }
-  }, type: '*/*', limit: '4mb' }));
+  }, type: '*/*', limit: '16mb' }));
 app.use(cors());
 
 app.get('/file.gym', (req, res, next) => {

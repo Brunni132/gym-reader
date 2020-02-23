@@ -1,4 +1,4 @@
-import {GLOBAL_ATTENUATION, SAMPLE_RATE} from "./ym2612";
+import {GLOBAL_ATTENUATION, SAMPLE_RATE, SOURCE_FUNCTION} from "./ym2612";
 import {DEBUG_frameNo, print} from "../client-main";
 
 const PHASE_ATTACK = 0, PHASE_DECAY = 1, PHASE_SUSTAIN = 2, PHASE_RELEASE = 3;
@@ -26,10 +26,15 @@ const ATTENUATION_INCREMENT_TABLE = [
 ];
 
 export class Operator {
-  constructor(name) {
+  constructor(name, channel) {
     this.name = `[${name}]`;
+    this.channel = channel;
     this.angle = 0;
     this.frequency = 0;
+    this.freqDetune = 0;
+    this.freqMultiple = 0;
+    this.keyScalingNote = 0;
+    this.keyScalingFactor = 0;
     this.sampleNumber = 0;
     this.envelope = {
       counter: 0,
@@ -52,7 +57,8 @@ export class Operator {
     let rate = this.envelope.currentPhaseParams.rate;
     if (rate > 0) {
       rate *= 2;
-      // TODO Florian -- key scaling
+      // key scaling (page 29 YM2608J translated)
+      rate += this.keyScalingNote >>> (3 - this.keyScalingFactor);
       if (rate > 63) rate = 63;
     }
 
@@ -91,32 +97,59 @@ export class Operator {
     this.envelope.phase = on ? PHASE_ATTACK : PHASE_RELEASE;
   }
 
-  process40Write(data) {
-    print(this, `total_level=${data}`);
-    this.envelope.totalAttenuation = data;
+  process30Write(data) {
+    const detune = data >>> 4 & 0x7, multiple = data & 0xf;
+    print(this, `detune=${detune} multiple=${multiple}`);
+    this.freqDetune = detune;
+    this.freqMultiple = multiple;
   }
 
-  process50Write(rateScaling, attackRate) {
+  process40Write(data) {
+    const totalLevel = data & 0x7f;
+    print(this, `total_level=${totalLevel}`);
+    this.envelope.totalAttenuation = totalLevel;
+  }
+
+  process50Write(data) {
+    const rateScaling = data >>> 6, attackRate = data & 0x1f;
     print(this, `rate_scaling=${rateScaling}, attack_rate=${attackRate}`);
-    // TODO Florian -- Rate scaling
+    this.keyScalingFactor = rateScaling;
     this.envelope.phaseParams[PHASE_ATTACK].rate = attackRate;
   }
 
-  process60Write(amplitudeModulation, decayRate) {
+  process60Write(data) {
+    const amplitudeModulation = data >>> 7, decayRate = data & 0x1f;
     print(this, `amplitude_mod=${amplitudeModulation}, decay_rate=${decayRate}`);
     // TODO Florian -- Amplitude modulation
     this.envelope.phaseParams[PHASE_DECAY].rate = decayRate;
   }
 
-  process70Write(sustainRate) {
+  process70Write(data) {
+    const sustainRate = data & 0x1f;
     print(this, `sustain_rate=${sustainRate}`);
     this.envelope.phaseParams[PHASE_SUSTAIN].rate = sustainRate;
   }
 
-  process80Write(decayLevel, releaseRate) {
+  process80Write(data) {
+    const decayLevel = (data >>> 4) * 8, releaseRate = (data & 0xf) * 2 + 1;
     print(this, `decay_level=${decayLevel}, release_rate=${releaseRate}`);
     this.envelope.phaseParams[PHASE_DECAY].endAttenuation = decayLevel;
     this.envelope.phaseParams[PHASE_RELEASE].rate = releaseRate;
+  }
+
+  // Uses the parent channel and current operator data to update the frequency in Hz
+  updateFrequency() {
+    const freq = this.channel.frequencyHz;
+    const block = this.channel.block;
+    const fnum = this.channel.fnumber;
+    // key scaling (page 29 YM2608J translated)
+    const f11 = fnum.bit(10), f10 = fnum.bit(9), f9 = fnum.bit(8), f8 = fnum.bit(7);
+    const n4 = f11;
+    const n3 = f11 & (f10 | f9 | f8) | !f11 & f10 & f9 & f8;
+    const division = n4 << 1 | n3;
+
+    this.frequency = freq;
+    this.keyScalingNote = block << 2 | division;
   }
 
   processSamples(samples) {
@@ -131,7 +164,7 @@ export class Operator {
         this.calcEnvelope();
       }
 
-      const sample = (Math.sin(this.angle) > 0 ? 1 : -1) * volume / GLOBAL_ATTENUATION;
+      const sample = SOURCE_FUNCTION(this.angle) * volume / GLOBAL_ATTENUATION;
      	this.angle += this.frequency * 2 * Math.PI / SAMPLE_RATE;
       samples[i] += sample;
     }
