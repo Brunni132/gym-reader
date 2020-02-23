@@ -1,5 +1,5 @@
-import {GLOBAL_ATTENUATION, SAMPLE_RATE, SOURCE_FUNCTION} from "./ym2612";
-import {DEBUG_frameNo, print} from "../client-main";
+import {GLOBAL_ATTENUATION, MEGADRIVE_FREQUENCY, SAMPLE_RATE, SOURCE_FUNCTION} from "./ym2612";
+import {print} from "../client-main";
 
 const PHASE_ATTACK = 0, PHASE_DECAY = 1, PHASE_SUSTAIN = 2, PHASE_RELEASE = 3;
 // From the 10-bit attenuation value over time (averaged and multiplied by 8)
@@ -23,6 +23,49 @@ const ATTENUATION_INCREMENT_TABLE = [
   16, 20, 24, 28,
   32, 40, 48, 56,
   64, 64, 64, 64
+];
+
+// For 8 MHz
+const DETUNE_TABLE = [
+  [0, 0, 0.053, 0.106],     // Block 0
+  [0, 0, 0.053, 0.106],
+  [0, 0, 0.053, 0.106],
+  [0, 0, 0.053, 0.106],
+
+  [0, 0.053, 0.106, 0.106], // Block 1
+  [0, 0.053, 0.106, 0.159],
+  [0, 0.053, 0.106, 0.159],
+  [0, 0.053, 0.106, 0.159],
+
+  [0, 0.053, 0.106, 0.212], // Block 2
+  [0, 0.053, 0.159, 0.212],
+  [0, 0.053, 0.159, 0.212],
+  [0, 0.053, 0.159, 0.264],
+
+  [0, 0.106, 0.212, 0.264], // Block 3
+  [0, 0.106, 0.212, 0.317],
+  [0, 0.106, 0.212, 0.317],
+  [0, 0.106, 0.264, 0.370],
+
+  [0, 0.106, 0.264, 0.423], // Block 4
+  [0, 0.159, 0.317, 0.423],
+  [0, 0.159, 0.317, 0.476],
+  [0, 0.159, 0.370, 0.529],
+
+  [0, 0.212, 0.423, 0.582], // Block 5
+  [0, 0.212, 0.423, 0.635],
+  [0, 0.212, 0.476, 0.688],
+  [0, 0.264, 0.529, 0.741],
+
+  [0, 0.264, 0.582, 0.846], // Block 6
+  [0, 0.317, 0.635, 0.899],
+  [0, 0.317, 0.688, 1.005],
+  [0, 0.370, 0.741, 1.058],
+
+  [0, 0.423, 0.846, 1.164], // Block 7
+  [0, 0.423, 0.846, 1.164],
+  [0, 0.423, 0.846, 1.164],
+  [0, 0.423, 0.846, 1.164]
 ];
 
 export class Operator {
@@ -72,7 +115,6 @@ export class Operator {
       if (this.envelope.phase === PHASE_ATTACK) {
         // Simulation discrète d'exponentielle
         this.envelope.attenuation += (~this.envelope.attenuation * attenuationIncrement) >> 4;
-        print(this, `atn[ATK]=${this.envelope.attenuation} to ${this.envelope.currentPhaseParams.endAttenuation}`);
 
         if (this.envelope.attenuation <= this.envelope.currentPhaseParams.endAttenuation) {
           this.envelope.attenuation = this.envelope.currentPhaseParams.endAttenuation;
@@ -80,7 +122,6 @@ export class Operator {
         }
       } else {
         this.envelope.attenuation += attenuationIncrement;
-        print(this, `atn[${this.envelope.phase}]=${this.envelope.attenuation} to ${this.envelope.currentPhaseParams.endAttenuation}`);
 
         if (this.envelope.attenuation >= this.envelope.currentPhaseParams.endAttenuation) {
           this.envelope.attenuation = this.envelope.currentPhaseParams.endAttenuation;
@@ -102,6 +143,7 @@ export class Operator {
     print(this, `detune=${detune} multiple=${multiple}`);
     this.freqDetune = detune;
     this.freqMultiple = multiple;
+    this.updateFrequency();
   }
 
   process40Write(data) {
@@ -138,6 +180,7 @@ export class Operator {
   }
 
   // Uses the parent channel and current operator data to update the frequency in Hz
+  // Called when any of these params change (channel F-number, or operator DT1/MUL params)
   updateFrequency() {
     const freq = this.channel.frequencyHz;
     const block = this.channel.block;
@@ -148,8 +191,22 @@ export class Operator {
     const n3 = f11 & (f10 | f9 | f8) | !f11 & f10 & f9 & f8;
     const division = n4 << 1 | n3;
 
-    this.frequency = freq;
+    // YM2608 page 26
+    if (this.freqMultiple === 0) {
+      this.frequency = freq / 2;
+    } else {
+      this.frequency = freq * this.freqMultiple;
+    }
+
     this.keyScalingNote = block << 2 | division;
+
+    const FD = this.freqDetune & 3;
+    const detune = DETUNE_TABLE[this.keyScalingNote][FD] * MEGADRIVE_FREQUENCY / 8000000;
+    if (this.freqDetune & 4) {
+      this.frequency -= detune;
+    } else {
+      this.frequency += detune;
+    }
   }
 
   processSamples(samples) {

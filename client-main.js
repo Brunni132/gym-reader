@@ -8,7 +8,7 @@ export function print(object, ...text) {
   //if (DEBUG_frameNo === 194)
   //if (text[0].startsWith(`next`))
   //if (object.name === '[CH1 OP4]' && !text[0].startsWith('next'))
-  //  console.log(`${object.name} frame=${DEBUG_frameNo}`, ...text);
+  console.log(`${object.name} frame=${DEBUG_frameNo}`, ...text);
 }
 
 function playSound(audioCtx, audioBuffer) {
@@ -48,7 +48,9 @@ Number.prototype.bit = function(bitNo) {
 };
 
 async function run() {
-	const res = await window.fetch('http://localhost:3001/file.gym');
+  const file = window.location.hash.substr(1) || 'file.gym';
+  // We can fetch from webpack server
+	const res = await window.fetch(file);
 	if (!res.ok) throw Error('Unable to fetch gym file');
 
 	const audioCtx = new (window.AudioContext || window.webkitAudioContext)();

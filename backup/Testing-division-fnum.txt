@@ -1,0 +1,20 @@
+function test(fnum) {
+  const f11 = fnum >>> 10 & 1, f10 = fnum >>> 9 & 1, f9 = fnum >>> 8 & 1, f8 = fnum >>> 7 & 1;
+  const n4 = fnum >>> 10;
+  const n3 = f11 & (f10 | f9 | f8) | !f11 & f10 & f9 & f8;
+  const division = n4 << 1 | n3;
+  console.log(`TEMP F=${fnum} division=${division}`);
+}
+
+test(654);
+test(692);
+test(734);
+test(777);
+test(823);
+test(872);
+test(924);
+test(979);
+test(1038);
+test(1099);
+test(1165);
+test(1234);

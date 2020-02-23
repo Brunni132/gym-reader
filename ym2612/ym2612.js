@@ -4,10 +4,11 @@ import * as SourceFunctions from "./sourceFunctions";
 
 export const GLOBAL_ATTENUATION = 6;
 export const DEBUG_LOG_UNKNOWN_WRITES = false;
-export const SOURCE_FUNCTION = SourceFunctions.triangle;
+export const SOURCE_FUNCTION = SourceFunctions.sin;
 
 export const SAMPLE_RATE = 48000;
-export const FM_OVER_144 = 7670454 / 144; // Japan Mega Drive
+export const MEGADRIVE_FREQUENCY = 7670454; // Japan Mega Drive
+export const FM_OVER_144 = MEGADRIVE_FREQUENCY / 144;
 
 function addBuffers(dest, ...sources) {
 	for (let i = 0; i < dest.length; i++) {

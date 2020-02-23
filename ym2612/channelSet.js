@@ -76,7 +76,7 @@ export class ChannelSet {
 
     case 0xa0:
       if (reg < 0xa3) return this.processFrequencyWrite(reg & 3);
-      else if (reg >= 0xa4 && reg < 0xa7) return; // MSB frequency
+      else if (reg >= 0xa4 && reg < 0xa7) return; // MSB frequency (do not trigger anything as LSB must be written last)
       break;
 
     case 0xb0:
