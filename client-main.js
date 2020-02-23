@@ -54,7 +54,7 @@ async function run() {
 	if (!res.ok) throw Error('Unable to fetch gym file');
 
 	const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	const audioBuffer = audioCtx.createBuffer(1, 90 * SAMPLE_RATE, SAMPLE_RATE);
+	const audioBuffer = audioCtx.createBuffer(1, 10 * SAMPLE_RATE, SAMPLE_RATE);
 	const samples = audioBuffer.getChannelData(0);
 	const samplesPerFrame = SAMPLE_RATE / 60;
 	let processedSamples = 0;
@@ -72,6 +72,7 @@ async function run() {
 				buffer = buffer.subarray(1);
 				ym.processSamples(samples.subarray(processedSamples, Math.min(processedSamples + samplesPerFrame, samples.length)));
 				processedSamples += samplesPerFrame;
+        DEBUG_frameNo = processedFrames;
 				break;
 			case 1:
 				ym.processWrite(0, buffer[1], buffer[2]);
@@ -90,7 +91,6 @@ async function run() {
 			default:
 				throw new Error(`Unknown command ${buffer[0]}`);
 		}
-    DEBUG_frameNo++;
 	}
 
 	playSound(audioCtx, audioBuffer);

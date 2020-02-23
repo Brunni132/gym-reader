@@ -127,7 +127,6 @@ export class Operator {
           this.envelope.attenuation = this.envelope.currentPhaseParams.endAttenuation;
           if (this.envelope.phase === PHASE_DECAY) {
             this.envelope.phase++;
-            print(this, `next from decay`);
           }
         }
       }
@@ -209,10 +208,13 @@ export class Operator {
     }
   }
 
-  processSamples(samples) {
-    if (this.frequency === 0) return;
+  processSamples(inputSamples, outputSamples, mix) {
+    if (this.frequency === 0) {
+      if (!mix) outputSamples.fill(0);
+      return;
+    }
 
-    for (let i = 0; i < samples.length; i++) {
+    for (let i = 0; i < outputSamples.length; i++) {
       const atnDb = (this.envelope.attenuation * 48 / 1023) + (this.envelope.totalAttenuation * 96 / 127);
       const volume = Math.pow(10, -atnDb / 20);
 
@@ -221,9 +223,15 @@ export class Operator {
         this.calcEnvelope();
       }
 
-      const sample = SOURCE_FUNCTION(this.angle) * volume / GLOBAL_ATTENUATION;
-     	this.angle += this.frequency * 2 * Math.PI / SAMPLE_RATE;
-      samples[i] += sample;
+      const sample = SOURCE_FUNCTION(this.angle /*+ (inputSamples ? inputSamples[i] : 0)*/) * volume / GLOBAL_ATTENUATION;
+      if (mix) {
+        if (i === 0 && typeof outputSamples[i] === 'undefined') console.error('Invalid array!!!');
+        outputSamples[i] += sample;
+      }
+      else {
+        outputSamples[i] = sample;
+      }
+      this.angle += this.frequency * 2 * Math.PI / SAMPLE_RATE;
     }
   }
 }

@@ -1,6 +1,7 @@
 import {ChannelSet} from "./channelSet";
 import {print} from "../client-main";
 import * as SourceFunctions from "./sourceFunctions";
+import {addBuffers} from "./utils";
 
 export const GLOBAL_ATTENUATION = 6;
 export const DEBUG_LOG_UNKNOWN_WRITES = false;
@@ -9,15 +10,6 @@ export const SOURCE_FUNCTION = SourceFunctions.sin;
 export const SAMPLE_RATE = 48000;
 export const MEGADRIVE_FREQUENCY = 7670454; // Japan Mega Drive
 export const FM_OVER_144 = MEGADRIVE_FREQUENCY / 144;
-
-function addBuffers(dest, ...sources) {
-	for (let i = 0; i < dest.length; i++) {
-		dest[i] = 0;
-		for (let j = 0; j < sources.length; j++)
-			dest[i] += sources[j][i];
-	}
-	return dest;
-}
 
 export class YM2612 {
 	constructor() {
@@ -73,9 +65,7 @@ export class YM2612 {
 	}
 
 	processSamples(outputSamples) {
-		outputSamples.fill(0);
-
-		const runningOps = [];
+	  const runningOps = [];
 		this.channels.forEach(c => {
 			c.operators.forEach(o => {
 				if (o.frequency > 0) {
@@ -83,15 +73,15 @@ export class YM2612 {
 				}
 			});
 		});
-		print(this, `Processing frame active = ${runningOps.join(', ')}`);
+		//print(this, `Processing frame active = ${runningOps.join(', ')}`);
 
 		addBuffers(outputSamples,
-				this.channels[0].processSamples(outputSamples.slice()),
-				this.channels[1].processSamples(outputSamples.slice()),
-				this.channels[2].processSamples(outputSamples.slice()),
-				this.channels[3].processSamples(outputSamples.slice()),
-				this.channels[4].processSamples(outputSamples.slice()),
-				this.channels[5].processSamples(outputSamples.slice()),
+				this.channels[0].processSamples(outputSamples.length),
+				this.channels[1].processSamples(outputSamples.length),
+				this.channels[2].processSamples(outputSamples.length),
+				this.channels[3].processSamples(outputSamples.length),
+				this.channels[4].processSamples(outputSamples.length),
+				this.channels[5].processSamples(outputSamples.length),
 		);
 	}
 }

@@ -1,5 +1,6 @@
 import {Operator} from "./operator";
 import {FM_OVER_144} from "./ym2612";
+import {DEBUG_frameNo, print} from "../client-main";
 
 export class Channel {
   constructor(name, channelSet, channelNo) {
@@ -34,23 +35,85 @@ export class Channel {
     return this.fnumber * FM_OVER_144 * Math.pow(2, this.block - 21);
   }
 
-  processSamples(outputSamples) {
-    const slotPerAlgo = [
-      8,
-      8,
-      8,
-      8,
-      8 + 2,
-      2 + 4 + 8,
-      2 + 4 + 8,
-      1 + 2 + 4 + 8,
-    ];
+  processSamples(numSamples) {
+    const output = Array(numSamples);
+    let buffer2;
 
-    for (let i = 0; i < 4; i++) {
-      if ((slotPerAlgo[this.algorithm] & (1 << i))) {
-        this.operators[i].processSamples(outputSamples);
-      }
+    print(this, `Algorithm ${this.algorithm}`);
+
+    switch (this.algorithm) {
+    case 0:
+      this.operators[0].processSamples(null, output, false);
+      this.operators[1].processSamples(output, output, false);
+      this.operators[2].processSamples(output, output, false);
+      this.operators[3].processSamples(output, output, false);
+      break;
+    case 1:
+      buffer2 = output.slice();
+      this.operators[0].processSamples(null, output, false);
+      this.operators[1].processSamples(null, output, true);
+      this.operators[2].processSamples(output, output, false);
+      this.operators[3].processSamples(output, output, false);
+      break;
+    case 2:
+      buffer2 = output.slice();
+      this.operators[0].processSamples(null, output, false);
+      this.operators[1].processSamples(null, buffer2, false);
+      this.operators[2].processSamples(buffer2, output, true);
+      this.operators[3].processSamples(output, output, false);
+      break;
+    case 3:
+      this.operators[0].processSamples(null, output, false);
+      this.operators[1].processSamples(output, output, false);
+      this.operators[2].processSamples(null, output, true);
+      this.operators[3].processSamples(output, output, false);
+      break;
+    case 4:
+      buffer2 = output.slice();
+      this.operators[0].processSamples(null, output, false);
+      this.operators[1].processSamples(output, output, false);
+      this.operators[2].processSamples(null, buffer2, false);
+      this.operators[3].processSamples(buffer2, output, true);
+      break;
+    case 5:
+      buffer2 = output.slice();
+      this.operators[0].processSamples(null, buffer2, false);
+      this.operators[1].processSamples(buffer2, output, false);
+      this.operators[2].processSamples(buffer2, output, true);
+      this.operators[3].processSamples(buffer2, output, true);
+      break;
+    case 6:
+      this.operators[0].processSamples(null, output, false);
+      this.operators[1].processSamples(output, output, false);
+      this.operators[2].processSamples(null, output, true);
+      this.operators[3].processSamples(null, output, true);
+      break;
+    case 7:
+      this.operators[0].processSamples(null, output, false);
+      this.operators[1].processSamples(null, output, true);
+      this.operators[2].processSamples(null, output, true);
+      this.operators[3].processSamples(null, output, true);
+      break;
     }
-    return outputSamples;
+    return output;
+
+    //const outputSamples = Array(numSamples).fill(0);
+    //const slotPerAlgo = [
+    //  8,
+    //  8,
+    //  8,
+    //  8,
+    //  8 + 2,
+    //  2 + 4 + 8,
+    //  2 + 4 + 8,
+    //  1 + 2 + 4 + 8,
+    //];
+    //
+    //for (let i = 0; i < 4; i++) {
+    //  if ((slotPerAlgo[this.algorithm] & (1 << i))) {
+    //    this.operators[i].processSamples(null, outputSamples, false);
+    //  }
+    //}
+    //return outputSamples;
   }
 }
