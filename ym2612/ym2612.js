@@ -83,5 +83,8 @@ export class YM2612 {
 				this.channels[4].processSamples(outputSamples.length),
 				this.channels[5].processSamples(outputSamples.length),
 		);
+		for (let i = 0; i < outputSamples.length; i++) {
+		  outputSamples[i] /= GLOBAL_ATTENUATION;
+    }
 	}
 }

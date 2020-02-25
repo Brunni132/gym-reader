@@ -79,6 +79,7 @@ export class Operator {
     this.keyScalingNote = 0;
     this.keyScalingFactor = 0;
     this.sampleNumber = 0;
+    this.previousSamples = [0, 0];
     this.envelope = {
       counter: 0,
       totalAttenuation: 0, // Total level
@@ -208,7 +209,7 @@ export class Operator {
     }
   }
 
-  processSamples(inputSamples, outputSamples, mix) {
+  processSamples(inputSamples, outputSamples, mix, feedback = 0) {
     if (this.frequency === 0) {
       if (!mix) outputSamples.fill(0);
       return;
@@ -223,14 +224,22 @@ export class Operator {
         this.calcEnvelope();
       }
 
-      const sample = SOURCE_FUNCTION(this.angle /*+ (inputSamples ? inputSamples[i] : 0)*/) * volume / GLOBAL_ATTENUATION;
+      let angle = this.angle;
+      if (inputSamples) angle += inputSamples[i] * 2 * Math.PI;
+      angle += feedback * (this.previousSamples[0] + this.previousSamples[1]) / 2;
+
+      const sample = SOURCE_FUNCTION(angle) * volume;
       if (mix) {
+        // TODO Florian -- remove me
         if (i === 0 && typeof outputSamples[i] === 'undefined') console.error('Invalid array!!!');
         outputSamples[i] += sample;
       }
       else {
         outputSamples[i] = sample;
+        this.previousSamples[0] = this.previousSamples[1];
+        this.previousSamples[1] = sample;
       }
+
       this.angle += this.frequency * 2 * Math.PI / SAMPLE_RATE;
     }
   }

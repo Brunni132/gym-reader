@@ -20,31 +20,13 @@ export class ChannelSet {
     return this.channels[reg & 3].operators[reg >>> 2 & 3];
   }
 
-  // Called when any register having an effect with the frequency changes
-  processFrequencyWrite(channel) {
-    print(this.channels[channel], `frequency=${this.channels[channel].frequencyHz}`);
-    this.channels[channel].operators.forEach(op => op.updateFrequency());
-  }
-
-  processFeedbackAlgorithm(channel, data) {
-    print(this.channels[channel], `algo=${data & 7} feedback=${data >>> 3 & 7}`);
-    this.channels[channel].algorithm = data & 7;
-  }
-
-  processStereoLfoSensitivity(channel, data) {
-    const fms_table = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
-    const ams_table = [0, 1.4, 5.9, 11.8];
-    const output = ['disabled', 'right', 'left', 'center'];
-    print(this.channels[channel], `FMS=+/-${fms_table[data & 3]}% of halftone, AMS=${ams_table[data >>> 3 & 7]}dB, pan=${output[data >>> 6]}`);
-  }
-
   processWrite(part, reg, data) {
     switch (reg & 0xf0) {
     case 0x30: {
       const operator = this.channelOperator(reg);
       if (operator) {
         operator.process30Write(data);
-        return this.processFrequencyWrite(reg & 3);
+        return operator.updateFrequency();
       }
       break;
     }
@@ -75,13 +57,13 @@ export class ChannelSet {
     }
 
     case 0xa0:
-      if (reg < 0xa3) return this.processFrequencyWrite(reg & 3);
+      if (reg < 0xa3) return this.channels[reg & 3].processFrequencyWrite(data);
       else if (reg >= 0xa4 && reg < 0xa7) return; // MSB frequency (do not trigger anything as LSB must be written last)
       break;
 
     case 0xb0:
-      if (reg < 0xb3) return this.processFeedbackAlgorithm(reg & 3, data);
-      if (reg >= 0xb4 && reg < 0xb7) return this.processStereoLfoSensitivity(reg & 3, data);
+      if (reg < 0xb3) return this.channels[reg & 3].processAlgoFeedbackWrite(data);
+      if (reg >= 0xb4 && reg < 0xb7) return this.channels[reg & 3].processStereoLfoSensitivity(data);
       break;
     }
     if (DEBUG_LOG_UNKNOWN_WRITES) {

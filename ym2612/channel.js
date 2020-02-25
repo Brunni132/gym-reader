@@ -14,6 +14,7 @@ export class Channel {
       new Operator(`${name} OP4`, this)
     ];
     this.algorithm = 0;
+    this.feedback = 0;
   }
 
   // Offset in octave (also called F-number)
@@ -35,61 +36,80 @@ export class Channel {
     return this.fnumber * FM_OVER_144 * Math.pow(2, this.block - 21);
   }
 
+  processStereoLfoSensitivity(data) {
+    const fms_table = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
+    const ams_table = [0, 1.4, 5.9, 11.8];
+    const output = ['disabled', 'right', 'left', 'center'];
+    // TODO Florian -- take in account
+    print(this, `FMS=+/-${fms_table[data & 3]}% of halftone, AMS=${ams_table[data >>> 3 & 7]}dB, pan=${output[data >>> 6]}`);
+  }
+
+  // Frequency change
+  processFrequencyWrite(data) {
+    // Data not used as we don't cache the frequency
+    this.operators.forEach(op => op.updateFrequency());
+  }
+
+  processAlgoFeedbackWrite(data) {
+    const algo = data & 7, feedback = data >>> 3 & 7;
+    print(this, `algo=${algo} feedback=${feedback}`);
+    this.algorithm = algo;
+    this.feedback = feedback === 0 ? 0 : ((64 >> (7 - feedback)) * Math.PI / 16);
+  }
+
   processSamples(numSamples) {
     const output = Array(numSamples);
     let buffer2;
 
-    print(this, `Algorithm ${this.algorithm}`);
-
     switch (this.algorithm) {
     case 0:
-      this.operators[0].processSamples(null, output, false);
+      this.operators[0].processSamples(null, output, false, this.feedback);
       this.operators[1].processSamples(output, output, false);
       this.operators[2].processSamples(output, output, false);
       this.operators[3].processSamples(output, output, false);
       break;
     case 1:
       buffer2 = output.slice();
-      this.operators[0].processSamples(null, output, false);
+      this.operators[0].processSamples(null, output, false, this.feedback);
       this.operators[1].processSamples(null, output, true);
       this.operators[2].processSamples(output, output, false);
       this.operators[3].processSamples(output, output, false);
       break;
     case 2:
       buffer2 = output.slice();
-      this.operators[0].processSamples(null, output, false);
+      this.operators[0].processSamples(null, output, false, this.feedback);
       this.operators[1].processSamples(null, buffer2, false);
       this.operators[2].processSamples(buffer2, output, true);
       this.operators[3].processSamples(output, output, false);
       break;
     case 3:
-      this.operators[0].processSamples(null, output, false);
+      this.operators[0].processSamples(null, output, false, this.feedback);
       this.operators[1].processSamples(output, output, false);
       this.operators[2].processSamples(null, output, true);
       this.operators[3].processSamples(output, output, false);
       break;
     case 4:
       buffer2 = output.slice();
-      this.operators[0].processSamples(null, output, false);
+      this.operators[0].processSamples(null, output, false, this.feedback);
       this.operators[1].processSamples(output, output, false);
       this.operators[2].processSamples(null, buffer2, false);
       this.operators[3].processSamples(buffer2, output, true);
       break;
     case 5:
       buffer2 = output.slice();
-      this.operators[0].processSamples(null, buffer2, false);
+      this.operators[0].processSamples(null, buffer2, false, this.feedback);
       this.operators[1].processSamples(buffer2, output, false);
       this.operators[2].processSamples(buffer2, output, true);
       this.operators[3].processSamples(buffer2, output, true);
       break;
     case 6:
-      this.operators[0].processSamples(null, output, false);
+      this.operators[0].processSamples(null, output, false, this.feedback);
       this.operators[1].processSamples(output, output, false);
       this.operators[2].processSamples(null, output, true);
       this.operators[3].processSamples(null, output, true);
       break;
     case 7:
-      this.operators[0].processSamples(null, output, false);
+      this.operators[0].processSamples(null, output, false, this.feedback);
       this.operators[1].processSamples(null, output, true);
       this.operators[2].processSamples(null, output, true);
       this.operators[3].processSamples(null, output, true);
