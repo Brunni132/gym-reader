@@ -1,5 +1,6 @@
-import {DEBUG_LOG_UNKNOWN_WRITES, SAMPLE_RATE, YM2612} from "./ym2612/ym2612";
-import {WaveFile} from "wavefile";
+import {DEBUG_LOG_UNKNOWN_WRITES, SAMPLE_RATE, YM2612} from "./ym2612/ym2612.js";
+import {WaveFile} from "./wavefile/index.js";
+import "./filesaver/src/FileSaver.js";
 
 export let DEBUG_frameNo = 0;
 
@@ -19,20 +20,21 @@ function playSound(audioCtx, audioBuffer) {
 }
 
 function saveSound(samples) {
-  const buffer16 = new Array(samples.length);
-  for (let i = 0; i < samples.length; i++)
-    buffer16[i] = Math.round(samples[i] * 32767);
+  const nbChannels = samples.length;
+  const nbSamples = samples[0].length;
+  const buffer16 = new Array(nbSamples * nbChannels);
+  
+  var k = 0;
+  for (let i = 0; i < nbSamples; i++) {
+	  for (let j = 0; j < nbChannels; j++)
+	  {
+		buffer16[k++] = Math.round(samples[j][i] * 32767);
+	  }	  
+  }
 
   const wav = new WaveFile();
-  wav.fromScratch(1, SAMPLE_RATE, '16', buffer16);
-  window.fetch('http://localhost:3001/sound.wav', {
-    method: 'POST',
-    mode: 'cors',
-    cache: 'no-cache',
-    credentials: 'same-origin',
-    contentType: 'application/binary',
-    body: new Blob([wav.toBuffer()], {type : 'application/binary'})
-  });
+  wav.fromScratch(nbChannels, SAMPLE_RATE, '16', buffer16);
+  saveAs(new Blob([wav.toBuffer()], {type : 'application/binary'}), "sound.wav");
 }
 
 Number.prototype.toHex = function(positions = 2) {
@@ -54,8 +56,9 @@ async function run() {
 	if (!res.ok) throw Error('Unable to fetch gym file');
 
 	const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	const audioBuffer = audioCtx.createBuffer(1, 50 * SAMPLE_RATE, SAMPLE_RATE);
-	const samples = audioBuffer.getChannelData(0);
+	const audioBuffer = audioCtx.createBuffer(2, 50 * SAMPLE_RATE, SAMPLE_RATE);
+	const samples = [audioBuffer.getChannelData(0), audioBuffer.getChannelData(1)];
+	const samplesTotal = samples[0].length;
 	const samplesPerFrame = SAMPLE_RATE / 60;
 	let processedSamples = 0;
 
@@ -64,13 +67,14 @@ async function run() {
 	let buffer = new Uint8Array(await res.arrayBuffer());
 	buffer = buffer.subarray(428);
 
-	while (buffer.length > 0 && processedSamples < samples.length) {
+	while (buffer.length > 0 && processedSamples < samplesTotal) {
 		switch (buffer[0]) {
 			case 0:
 				ym.processFrame();
 				processedFrames += 1;
 				buffer = buffer.subarray(1);
-				ym.processSamples(samples.subarray(processedSamples, Math.min(processedSamples + samplesPerFrame, samples.length)));
+				const nbSamples = Math.min(processedSamples + samplesPerFrame, samplesTotal);
+				ym.processSamples([samples[0].subarray(processedSamples, nbSamples), samples[1].subarray(processedSamples, nbSamples)]);
 				processedSamples += samplesPerFrame;
         DEBUG_frameNo = processedFrames;
 				break;
@@ -93,8 +97,8 @@ async function run() {
 		}
 	}
 
-	playSound(audioCtx, audioBuffer);
 	saveSound(samples);
+	playSound(audioCtx, audioBuffer);
 }
 
 //function test() {

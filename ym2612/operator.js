@@ -1,5 +1,5 @@
-import {GLOBAL_ATTENUATION, MEGADRIVE_FREQUENCY, SAMPLE_RATE, SOURCE_FUNCTION} from "./ym2612";
-import {print} from "../client-main";
+import {GLOBAL_ATTENUATION, MEGADRIVE_FREQUENCY, SAMPLE_RATE, SOURCE_FUNCTION} from "./ym2612.js";
+import {print} from "../client-main.js";
 
 const PHASE_ATTACK = 0, PHASE_DECAY = 1, PHASE_SUSTAIN = 2, PHASE_RELEASE = 3;
 // From the 10-bit attenuation value over time (averaged and multiplied by 8)
@@ -225,7 +225,7 @@ export class Operator {
       }
 
       let angle = this.angle;
-      if (inputSamples) angle += inputSamples[i] * 2 * Math.PI;
+      if (inputSamples) angle += inputSamples[i] * 8 * Math.PI;
       angle += feedback * (this.previousSamples[0] + this.previousSamples[1]) / 2;
 
       const sample = SOURCE_FUNCTION(angle) * volume;

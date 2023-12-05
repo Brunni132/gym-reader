@@ -1,7 +1,7 @@
-import {ChannelSet} from "./channelSet";
-import {print} from "../client-main";
-import * as SourceFunctions from "./sourceFunctions";
-import {addBuffers} from "./utils";
+import { print } from "../client-main.js";
+import { ChannelSet } from "./channelSet.js";
+import * as SourceFunctions from "./sourceFunctions.js";
+import { addStereoBuffers } from "./utils.js";
 
 export const GLOBAL_ATTENUATION = 6;
 export const DEBUG_LOG_UNKNOWN_WRITES = false;
@@ -13,7 +13,7 @@ export const FM_OVER_144 = MEGADRIVE_FREQUENCY / 144;
 
 export class YM2612 {
 	constructor() {
-	  this.name = 'YM2612';
+		this.name = 'YM2612';
 		this.memoryMap = new Uint8Array(512);
 		this.channelSets = [new ChannelSet(this.memoryMap.subarray(0, 256), 0), new ChannelSet(this.memoryMap.subarray(256, 512), 3)];
 	}
@@ -41,6 +41,10 @@ export class YM2612 {
 		if (reg < 0x30) {
 			if (part !== 0) return;
 			switch (reg & 0xff) {
+				case 0x22:
+					console.error(`Unsupported LFO config ${data & 0xf}`);
+					return;
+
 				case 0x27:
 					if (data >>> 6 !== 0) console.error(`Using unsupported channel 3 mode ${data >>> 6}`);
 					return;
@@ -50,9 +54,9 @@ export class YM2612 {
 					return;
 
 				default:
-				  if (DEBUG_LOG_UNKNOWN_WRITES) {
-            console.warn(`YM reg=${part}${reg.toHex()} data=${data.toHex()}`);
-          }
+					if (DEBUG_LOG_UNKNOWN_WRITES) {
+						console.warn(`YM reg=${part}${reg.toHex()} data=${data.toHex()}`);
+					}
 					return;
 			}
 		}
@@ -65,7 +69,7 @@ export class YM2612 {
 	}
 
 	processSamples(outputSamples) {
-	  const runningOps = [];
+		const runningOps = [];
 		this.channels.forEach(c => {
 			c.operators.forEach(o => {
 				if (o.frequency > 0) {
@@ -75,16 +79,19 @@ export class YM2612 {
 		});
 		//print(this, `Processing frame active = ${runningOps.join(', ')}`);
 
-		addBuffers(outputSamples,
-				this.channels[0].processSamples(outputSamples.length),
-				this.channels[1].processSamples(outputSamples.length),
-				this.channels[2].processSamples(outputSamples.length),
-				this.channels[3].processSamples(outputSamples.length),
-				this.channels[4].processSamples(outputSamples.length),
-				this.channels[5].processSamples(outputSamples.length),
+		const nbOutputSamples = outputSamples[0].length;
+		addStereoBuffers(outputSamples,
+			this.channels[0].processSamples(nbOutputSamples),
+			this.channels[1].processSamples(nbOutputSamples),
+			this.channels[2].processSamples(nbOutputSamples),
+			this.channels[3].processSamples(nbOutputSamples),
+			this.channels[4].processSamples(nbOutputSamples),
+			this.channels[5].processSamples(nbOutputSamples),
 		);
-		for (let i = 0; i < outputSamples.length; i++) {
-		  outputSamples[i] /= GLOBAL_ATTENUATION;
-    }
+		for (let j = 0; j < 2; j++) {
+			for (let i = 0; i < nbOutputSamples; i++) {
+				outputSamples[j][i] /= GLOBAL_ATTENUATION;
+			}
+		}
 	}
 }

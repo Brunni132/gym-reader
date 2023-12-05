@@ -1,6 +1,6 @@
-import {Operator} from "./operator";
-import {FM_OVER_144} from "./ym2612";
-import {DEBUG_frameNo, print} from "../client-main";
+import { print } from "../client-main.js";
+import { Operator } from "./operator.js";
+import { FM_OVER_144 } from "./ym2612.js";
 
 export class Channel {
   constructor(name, channelSet, channelNo) {
@@ -15,6 +15,8 @@ export class Channel {
     ];
     this.algorithm = 0;
     this.feedback = 0;
+	this.mixLeft  = false;
+	this.mixRight = false;
   }
 
   // Offset in octave (also called F-number)
@@ -40,8 +42,12 @@ export class Channel {
     const fms_table = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
     const ams_table = [0, 1.4, 5.9, 11.8];
     const output = ['disabled', 'right', 'left', 'center'];
+
+	this.mixLeft  = data >>> 7 & 1;
+	this.mixRight = data >>> 6 & 1;
+
     // TODO Florian -- take in account
-    print(this, `FMS=+/-${fms_table[data & 3]}% of halftone, AMS=${ams_table[data >>> 3 & 7]}dB, pan=${output[data >>> 6]}`);
+    print(this, `FMS=+/-${fms_table[data & 3]}% of halftone, AMS=${ams_table[data >>> 4 & 3]}dB, pan=${output[data >>> 6]}`);
   }
 
   // Frequency change
@@ -59,6 +65,7 @@ export class Channel {
 
   processSamples(numSamples) {
     const output = Array(numSamples);
+	const silence = new Array(numSamples).fill(0);
     let buffer2;
 
     switch (this.algorithm) {
@@ -115,7 +122,7 @@ export class Channel {
       this.operators[3].processSamples(null, output, true);
       break;
     }
-    return output;
+    return [this.mixLeft ? output : silence, this.mixRight ? output : silence];
 
     //const outputSamples = Array(numSamples).fill(0);
     //const slotPerAlgo = [

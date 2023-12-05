@@ -1,6 +1,6 @@
-import {Channel} from "./channel";
-import {DEBUG_LOG_UNKNOWN_WRITES, FM_OVER_144} from "./ym2612";
-import {print} from "../client-main";
+import {Channel} from "./channel.js";
+import {DEBUG_LOG_UNKNOWN_WRITES, FM_OVER_144} from "./ym2612.js";
+import {print} from "../client-main.js";
 
 // 3 channels (they have symmetrical configuration)
 export class ChannelSet {
@@ -17,7 +17,7 @@ export class ChannelSet {
   // For 30-8F gives the operator/channel combination
   channelOperator(reg) {
     if ((reg & 3) === 3) return null;
-    return this.channels[reg & 3].operators[reg >>> 2 & 3];
+    return this.channels[reg & 3].operators[[0, 2, 1, 3][reg >>> 2 & 3]];
   }
 
   processWrite(part, reg, data) {
